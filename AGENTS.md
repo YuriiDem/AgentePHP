@@ -31,17 +31,42 @@ config files. Anything containing an `if`, a loop, or a computation needs a test
 **The entire project is in English — without exception.** Code, identifiers, comments,
 commit messages, documentation, test names, CLI output, and exception messages.
 
+## Goals
+
+AgentePHP is a lightweight agentic framework that a developer new to AI agents can pick
+up and understand. Two goals, in priority order:
+
+1. **Build real agents in PHP** — conversation, tools, structured output, retrieval, and
+   workflows, production-capable and dependency-light.
+2. **Make the machinery legible** — reading this source should be a reasonable way to
+   learn how agentic systems work.
+
+When the two conflict, the first wins: the library must work correctly before it is
+instructive. But clarity is a feature here, not a nicety, and "it is faster this way"
+does not by itself justify code a newcomer cannot follow.
+
 ## Design posture
 
+- **No magic.** No hidden global state, no `__call` dispatch, no reflection where an
+  explicit call would do, no behaviour that depends on a naming convention the reader has
+  to know. If a reader cannot trace the path from their call to the HTTP request by
+  reading the code, the design is wrong.
+- **No required configuration layer.** No container, no YAML, no codegen step for the
+  common path. An agent is a class; a tool is a method.
 - Every component is written from scratch and kept as small as its scope requires. No
   third-party library is pulled in to solve a problem this library is meant to solve
   itself.
 - Prefer the version that is easier to read over the one that is shorter or cleverer.
+  Prefer a named local variable over a clever chain; prefer an early return over nesting.
 - No abstraction is introduced before a second concrete case for it exists. One
   implementation behind an interface is a sign the interface is premature — unless the
   second implementation is the test double that makes the first one testable.
 - Public API changes are deliberate: the surface is small, and every exported type
   earns its place.
+- **Exception messages teach.** A failure says what went wrong, what was expected, and
+  what to do about it. `Invalid argument` is not an acceptable message.
+- Every public type gets a short docblock stating what it is for. Inline comments stay
+  rare and explain *why*, never *what*.
 
 ## Technical conventions
 

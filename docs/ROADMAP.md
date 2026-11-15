@@ -4,6 +4,10 @@ The library is built in order, bottom-up: each component depends only on the one
 it. A milestone is closed when its code is written, its tests are green, and a runnable
 example exists in `examples/`.
 
+Keeping each layer small and self-contained is deliberate. A reader should be able to
+start at the bottom and understand one component at a time, rather than needing the
+whole framework in their head before the first agent runs.
+
 Design notes record why a given structure was chosen, so the decision can be revisited
 later instead of being re-litigated from scratch.
 
@@ -208,5 +212,23 @@ Hides the differences between vendor APIs behind one contract.
 **Scope**
 - `bin/agente`
 - generators: `make:agent`, `make:tool`
-- usage documentation
 - Packagist release
+
+---
+
+## 12. Documentation
+
+**Scope**
+- getting started: a working agent in under twenty lines
+- one guide per component, each answering what it does, when to reach for it, and what
+  it costs
+- a concepts page explaining the agentic loop, tool calling, and retrieval in plain
+  terms, independent of this library's API
+- a worked example built up across milestones rather than a set of disconnected
+  snippets
+
+**Design notes**
+- Documentation is a deliverable, not an afterthought: a framework whose selling point is
+  being understandable is not finished while its docs are a class reference.
+- Concepts are documented separately from the API so the explanation stays useful to
+  someone evaluating whether they need an agent at all.

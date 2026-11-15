@@ -1,6 +1,17 @@
 {
     "name": "ydem/agente-php",
-    "description": "A lightweight agentic framework for PHP: agents, tools, structured output, retrieval and workflows.",
+    "description": "A lightweight, approachable agentic framework for PHP: agents, tools, structured output, retrieval and workflows.",
+    "keywords": [
+        "ai",
+        "agents",
+        "llm",
+        "openai",
+        "anthropic",
+        "ollama",
+        "rag",
+        "function-calling",
+        "workflow"
+    ],
     "type": "library",
     "license": "MIT",
     "minimum-stability": "stable",
