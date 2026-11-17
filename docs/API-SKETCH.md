@@ -3,10 +3,11 @@
 This is the call site we are building toward, written before the implementation so the
 shape can be argued with while it is still free to change.
 
-**What runs today:** messages, the HTTP transport, and the OpenAI and Anthropic providers
-- so the provider construction in sections 1 and 2 and the provider test in section 11
-work as written. Everything that goes through `Agent` or `$agent->chat()` does not exist
-yet.
+**What runs today:** messages, conversation history, the HTTP transport, and the OpenAI
+and Anthropic providers - so the provider construction in sections 1 and 2, both history
+constructors in section 6, and the provider test in section 11 work as written. See
+`examples/01-conversation.php` for a working conversation built out of those parts.
+Everything that goes through `Agent` or `$agent->chat()` does not exist yet.
 
 Two things the implementation settled, recorded here rather than left in the open
 questions below: `fromEnvironment()` takes the model as a required argument (no default to
