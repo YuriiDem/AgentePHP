@@ -30,12 +30,18 @@ abstract class AbstractProvider implements AIProviderInterface
     protected readonly HttpClientInterface $http;
 
     /**
+     * What every provider has: a model to call and a way to make the call.
+     *
+     * An API key is deliberately not here. It looked universal while there were two
+     * hosted vendors, and the third provider showed it is not: a local Ollama has no
+     * credentials at all. A key belongs to the provider that signs its own request, next
+     * to the header it sets.
+     *
      * The transport defaults to the real one, so the common path needs no wiring, and is
-     * injectable, so a test needs no network. Both matter; neither is an afterthought.
-     * Resolving the default here means no subclass has to repeat the decision.
+     * injectable, so a test needs no network. Resolving that default here means no
+     * subclass repeats the decision.
      */
     public function __construct(
-        protected readonly string $apiKey,
         protected readonly string $model,
         ?HttpClientInterface $http = null,
     ) {

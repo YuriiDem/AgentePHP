@@ -45,11 +45,18 @@ class ProviderException extends AgenteException
             return '(an empty body)';
         }
 
-        // The vendor's own message is the useful part; show it instead of the envelope.
+        // The vendor's own sentence is the useful part; show it instead of the envelope.
+        // Vendors disagree on where it goes: OpenAI and Anthropic nest it under
+        // error.message, Ollama puts the sentence straight into error.
         $decoded = json_decode($body, true);
+        $error = is_array($decoded) ? $decoded['error'] ?? null : null;
 
-        if (is_array($decoded) && isset($decoded['error']) && is_array($decoded['error'])) {
-            $message = $decoded['error']['message'] ?? null;
+        if (is_string($error) && $error !== '') {
+            return $error;
+        }
+
+        if (is_array($error)) {
+            $message = $error['message'] ?? null;
 
             if (is_string($message) && $message !== '') {
                 return $message;

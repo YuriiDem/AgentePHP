@@ -8,6 +8,7 @@ use AgentePHP\Chat\Messages\SystemMessage;
 use AgentePHP\Chat\Messages\UserMessage;
 use AgentePHP\Providers\AIProviderInterface;
 use AgentePHP\Providers\Anthropic\AnthropicProvider;
+use AgentePHP\Providers\Ollama\OllamaProvider;
 use AgentePHP\Providers\OpenAI\OpenAIProvider;
 use AgentePHP\Tests\Support\FakeHttpClient;
 use PHPUnit\Framework\TestCase;
@@ -45,8 +46,43 @@ final class ProviderInterchangeabilityTest extends TestCase
             http: FakeHttpClient::returningJson(['content' => [['type' => 'text', 'text' => 'Paris']]]),
         );
 
+        $ollama = new OllamaProvider(
+            model: 'llama3.1',
+            http: FakeHttpClient::returningJson(['message' => ['content' => 'Paris']]),
+        );
+
         self::assertSame('Paris', $this->ask($openAi, $conversation));
         self::assertSame('Paris', $this->ask($anthropic, $conversation));
+        self::assertSame('Paris', $this->ask($ollama, $conversation));
+    }
+
+    /**
+     * Ollama is the case that proves the point: it needs no API key, answers at a URL of
+     * its own and names its token counts differently, and still nothing above has to know.
+     */
+    public function test_a_provider_that_needs_no_api_key_fits_the_same_contract(): void
+    {
+        $ollama = new OllamaProvider(
+            model: 'llama3.1',
+            http: FakeHttpClient::returningJson([
+                'message' => ['content' => 'Paris'],
+                'prompt_eval_count' => 10,
+                'eval_count' => 2,
+            ]),
+        );
+
+        $openAi = new OpenAIProvider(
+            apiKey: 'test-key',
+            model: 'gpt-4o-mini',
+            http: FakeHttpClient::returningJson([
+                'choices' => [['message' => ['content' => 'Paris']]],
+                'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 2],
+            ]),
+        );
+
+        $message = [new UserMessage('Capital of France?')];
+
+        self::assertEquals($openAi->chat($message)->usage(), $ollama->chat($message)->usage());
     }
 
     public function test_both_providers_report_usage_through_the_same_value_object(): void

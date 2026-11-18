@@ -19,9 +19,12 @@ final class OpenAIProvider extends AbstractProvider
 
     private readonly OpenAIMessageMapper $mapper;
 
-    public function __construct(string $apiKey, string $model, ?HttpClientInterface $http = null)
-    {
-        parent::__construct($apiKey, $model, $http);
+    public function __construct(
+        private readonly string $apiKey,
+        string $model,
+        ?HttpClientInterface $http = null,
+    ) {
+        parent::__construct($model, $http);
 
         $this->mapper = new OpenAIMessageMapper();
     }

@@ -32,7 +32,7 @@ Early development. The component roadmap is in [docs/ROADMAP.md](docs/ROADMAP.md
 - [x] Project scaffold
 - [x] Messages and conversation history
 - [x] HTTP transport
-- [ ] LLM providers — OpenAI and Anthropic done, Ollama outstanding
+- [x] LLM providers (OpenAI, Anthropic, Ollama)
 - [x] Agent core
 - [ ] Tools and function calling
 - [ ] Events and observability

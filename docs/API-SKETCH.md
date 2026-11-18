@@ -3,11 +3,11 @@
 This is the call site we are building toward, written before the implementation so the
 shape can be argued with while it is still free to change.
 
-**What runs today:** messages, conversation history, the HTTP transport, the OpenAI and
-Anthropic providers, and the agent core - so sections 1, 2, 6 and the first test in
-section 11 work as written, as do `examples/01-conversation.php` and
-`examples/02-agent.php`. Streaming, tools, structured output, retrieval and workflows do
-not exist yet; neither does `Agent::make()` on a subclass, which is `new` by design.
+**What runs today:** messages, conversation history, the HTTP transport, all three
+providers and the agent core - so sections 1, 2, 6 and the first test in section 11 work
+as written, as do the three files in `examples/`. Streaming, tools, structured output,
+retrieval and workflows do not exist yet; neither does `Agent::make()` on a subclass,
+which is `new` by design.
 
 Two things the implementation settled, recorded here rather than left in the open
 questions below: `fromEnvironment()` takes the model as a required argument (no default to

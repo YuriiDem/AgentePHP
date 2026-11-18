@@ -27,12 +27,12 @@ final class AnthropicProvider extends AbstractProvider
      * requirement, which is why this parameter lives here and not on AbstractProvider.
      */
     public function __construct(
-        string $apiKey,
+        private readonly string $apiKey,
         string $model,
         ?HttpClientInterface $http = null,
         private readonly int $maxTokens = self::DEFAULT_MAX_TOKENS,
     ) {
-        parent::__construct($apiKey, $model, $http);
+        parent::__construct($model, $http);
 
         $this->mapper = new AnthropicMessageMapper();
     }
