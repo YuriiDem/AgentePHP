@@ -13,6 +13,7 @@ use AgentePHP\Http\CurlHttpClient;
 use AgentePHP\Http\HttpClientInterface;
 use AgentePHP\Http\Request;
 use AgentePHP\Http\Response;
+use AgentePHP\Tools\Tool;
 
 /**
  * The part of "talk to a model over HTTP" that is identical for every vendor.
@@ -48,9 +49,9 @@ abstract class AbstractProvider implements AIProviderInterface
         $this->http = $http ?? new CurlHttpClient();
     }
 
-    final public function chat(array $messages): AssistantMessage
+    final public function chat(array $messages, array $tools = []): AssistantMessage
     {
-        $response = $this->http->send($this->buildRequest($messages));
+        $response = $this->http->send($this->buildRequest($messages, $tools));
 
         $this->failIfRefused($response);
 
@@ -65,8 +66,9 @@ abstract class AbstractProvider implements AIProviderInterface
 
     /**
      * @param list<Message> $messages
+     * @param list<Tool>    $tools
      */
-    abstract protected function buildRequest(array $messages): Request;
+    abstract protected function buildRequest(array $messages, array $tools): Request;
 
     /**
      * @param array<string, mixed> $payload

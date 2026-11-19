@@ -7,6 +7,8 @@ namespace AgentePHP\Tests\Unit\Chat\History;
 use AgentePHP\Chat\History\MessageSerializer;
 use AgentePHP\Chat\Messages\AssistantMessage;
 use AgentePHP\Chat\Messages\SystemMessage;
+use AgentePHP\Chat\Messages\ToolCall;
+use AgentePHP\Chat\Messages\ToolMessage;
 use AgentePHP\Chat\Messages\Usage;
 use AgentePHP\Chat\Messages\UserMessage;
 use AgentePHP\Exceptions\HistoryException;
@@ -100,5 +102,53 @@ final class MessageSerializerTest extends TestCase
         $this->expectExceptionMessage('content');
 
         (new MessageSerializer())->fromArray(['role' => 'user', 'content' => ['not', 'text']]);
+    }
+
+    /**
+     * A stored conversation that drops its tool calls cannot be replayed: every vendor
+     * requires the result to follow the request that asked for it, so losing either half
+     * would make the next call to the model invalid rather than merely incomplete.
+     */
+    public function test_a_tool_call_survives_being_stored(): void
+    {
+        $serializer = new MessageSerializer();
+
+        $original = new AssistantMessage('', toolCalls: [
+            new ToolCall(id: 'call_1', name: 'add', arguments: ['a' => 2, 'b' => 3]),
+        ]);
+
+        $restored = $serializer->fromArray($serializer->toArray($original));
+
+        self::assertInstanceOf(AssistantMessage::class, $restored);
+        self::assertTrue($restored->hasToolCalls());
+        self::assertSame('call_1', $restored->toolCalls()[0]->id);
+        self::assertSame('add', $restored->toolCalls()[0]->name);
+        self::assertSame(['a' => 2, 'b' => 3], $restored->toolCalls()[0]->arguments);
+    }
+
+    public function test_a_tool_result_survives_being_stored(): void
+    {
+        $serializer = new MessageSerializer();
+
+        $original = new ToolMessage(content: '5', toolCallId: 'call_1', toolName: 'add');
+
+        $restored = $serializer->fromArray($serializer->toArray($original));
+
+        self::assertEquals($original, $restored);
+    }
+
+    public function test_an_answer_with_no_tool_calls_stores_nothing_extra(): void
+    {
+        $data = (new MessageSerializer())->toArray(new AssistantMessage('Paris'));
+
+        self::assertArrayNotHasKey('tool_calls', $data);
+    }
+
+    public function test_it_rejects_a_stored_tool_result_with_no_call_to_belong_to(): void
+    {
+        $this->expectException(HistoryException::class);
+        $this->expectExceptionMessage('tool_call_id');
+
+        (new MessageSerializer())->fromArray(['role' => 'tool', 'content' => '5']);
     }
 }

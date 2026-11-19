@@ -8,6 +8,8 @@ use AgentePHP\Chat\Enums\MessageRole;
 use AgentePHP\Chat\Messages\AssistantMessage;
 use AgentePHP\Chat\Messages\Message;
 use AgentePHP\Chat\Messages\SystemMessage;
+use AgentePHP\Chat\Messages\ToolCall;
+use AgentePHP\Chat\Messages\ToolMessage;
 use AgentePHP\Chat\Messages\Usage;
 use AgentePHP\Chat\Messages\UserMessage;
 use AgentePHP\Exceptions\HistoryException;
@@ -41,6 +43,25 @@ final class MessageSerializer
                 'prompt' => $message->usage()->prompt,
                 'completion' => $message->usage()->completion,
             ];
+
+            // Stored only when there are any: a conversation that loses its tool calls
+            // cannot be replayed, because every vendor requires the result to follow the
+            // request that asked for it.
+            if ($message->hasToolCalls()) {
+                $data['tool_calls'] = array_map(
+                    static fn (ToolCall $call): array => [
+                        'id' => $call->id,
+                        'name' => $call->name,
+                        'arguments' => $call->arguments,
+                    ],
+                    $message->toolCalls(),
+                );
+            }
+        }
+
+        if ($message instanceof ToolMessage) {
+            $data['tool_call_id'] = $message->toolCallId;
+            $data['tool_name'] = $message->toolName;
         }
 
         return $data;
@@ -69,7 +90,12 @@ final class MessageSerializer
         return match (MessageRole::tryFrom($role)) {
             MessageRole::User => new UserMessage($content),
             MessageRole::System => new SystemMessage($content),
-            MessageRole::Assistant => new AssistantMessage($content, $this->usageFrom($data)),
+            MessageRole::Assistant => new AssistantMessage(
+                $content,
+                $this->usageFrom($data),
+                $this->toolCallsFrom($data),
+            ),
+            MessageRole::Tool => $this->toolMessageFrom($content, $data),
             null => throw HistoryException::unknownStoredRole($role, $this->knownRoles()),
         };
     }
@@ -94,6 +120,57 @@ final class MessageSerializer
         return new Usage(
             prompt: is_int($prompt) && $prompt >= 0 ? $prompt : 0,
             completion: is_int($completion) && $completion >= 0 ? $completion : 0,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return list<ToolCall>
+     */
+    private function toolCallsFrom(array $data): array
+    {
+        $stored = $data['tool_calls'] ?? null;
+
+        if (!is_array($stored)) {
+            return [];
+        }
+
+        $calls = [];
+
+        foreach ($stored as $call) {
+            if (!is_array($call) || !is_string($call['id'] ?? null) || !is_string($call['name'] ?? null)) {
+                throw HistoryException::missingStoredField('tool_calls', 'entries with an id and a name');
+            }
+
+            $arguments = $call['arguments'] ?? [];
+
+            /** @var array<string, mixed> $arguments */
+            $arguments = is_array($arguments) ? $arguments : [];
+
+            $calls[] = new ToolCall(id: $call['id'], name: $call['name'], arguments: $arguments);
+        }
+
+        return $calls;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function toolMessageFrom(string $content, array $data): ToolMessage
+    {
+        $id = $data['tool_call_id'] ?? null;
+
+        if (!is_string($id)) {
+            throw HistoryException::missingStoredField('tool_call_id', 'the id of the call it answers');
+        }
+
+        $name = $data['tool_name'] ?? null;
+
+        return new ToolMessage(
+            content: $content,
+            toolCallId: $id,
+            toolName: is_string($name) ? $name : '',
         );
     }
 

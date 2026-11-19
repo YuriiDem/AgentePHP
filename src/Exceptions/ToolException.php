@@ -92,6 +92,38 @@ final class ToolException extends AgenteException
         return new self(sprintf('Tool "%s" could not answer: %s', $tool, $why), previous: $previous);
     }
 
+    /**
+     * Two tools answering to one name is a mistake worth stopping for: the model picks a
+     * tool by name, so it could not express which of them it meant.
+     *
+     * @param list<string> $offered
+     */
+    public static function nameIsNotUnique(string $name, array $offered): self
+    {
+        return new self(sprintf(
+            'Two tools are called "%s", so the model could not say which one it means. '
+            . 'Rename one with #[AsTool(name: ...)], or stop offering the same toolkit twice. '
+            . 'The agent was offered: %s.',
+            $name,
+            implode(', ', $offered),
+        ));
+    }
+
+    /**
+     * Reported back to the model rather than thrown at the developer: a model inventing a
+     * tool name is a thing models do, and the next turn is its chance to correct itself.
+     *
+     * @param list<string> $available
+     */
+    public static function describeUnknownTool(string $name, array $available): string
+    {
+        return sprintf(
+            'There is no tool called "%s". The tools you can use are: %s.',
+            $name,
+            $available === [] ? '(none)' : implode(', ', $available),
+        );
+    }
+
     private static function describe(mixed $value): string
     {
         if (is_string($value)) {

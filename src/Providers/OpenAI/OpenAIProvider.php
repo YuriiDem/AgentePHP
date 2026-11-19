@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AgentePHP\Providers\OpenAI;
 
 use AgentePHP\Chat\Messages\AssistantMessage;
+use AgentePHP\Chat\Messages\ToolCall;
 use AgentePHP\Chat\Messages\Usage;
 use AgentePHP\Exceptions\ProviderException;
 use AgentePHP\Http\HttpClientInterface;
@@ -48,15 +49,22 @@ final class OpenAIProvider extends AbstractProvider
         return 'OpenAI';
     }
 
-    protected function buildRequest(array $messages): Request
+    protected function buildRequest(array $messages, array $tools): Request
     {
+        $payload = [
+            'model' => $this->model,
+            'messages' => $this->mapper->map($messages),
+        ];
+
+        // Sent only when there are any: the API rejects an empty tools array.
+        if ($tools !== []) {
+            $payload['tools'] = $this->mapper->tools($tools);
+        }
+
         return Request::postJson(
             self::ENDPOINT,
             ['Authorization' => 'Bearer ' . $this->apiKey],
-            [
-                'model' => $this->model,
-                'messages' => $this->mapper->map($messages),
-            ],
+            $payload,
         );
     }
 
@@ -75,13 +83,85 @@ final class OpenAIProvider extends AbstractProvider
             throw ProviderException::unexpectedPayload($this->name(), 'choices[0].message', $payload);
         }
 
+        $toolCalls = $this->readToolCalls($message, $payload);
         $content = $message['content'] ?? null;
 
+        // A model that only wants a tool run sends no text at all, so null content is the
+        // normal shape of that answer rather than a broken response.
         if (!is_string($content)) {
-            throw ProviderException::unexpectedPayload($this->name(), 'choices[0].message.content', $payload);
+            if ($toolCalls === []) {
+                throw ProviderException::unexpectedPayload($this->name(), 'choices[0].message.content', $payload);
+            }
+
+            $content = '';
         }
 
-        return new AssistantMessage($content, $this->readUsage($payload));
+        return new AssistantMessage($content, $this->readUsage($payload), $toolCalls);
+    }
+
+    /**
+     * @param array<array-key, mixed> $message
+     * @param array<string, mixed>    $payload
+     *
+     * @return list<ToolCall>
+     */
+    private function readToolCalls(array $message, array $payload): array
+    {
+        $requested = $message['tool_calls'] ?? null;
+
+        if (!is_array($requested)) {
+            return [];
+        }
+
+        $calls = [];
+
+        foreach ($requested as $call) {
+            $function = is_array($call) ? $call['function'] ?? null : null;
+
+            if (!is_array($function) || !is_string($function['name'] ?? null)) {
+                throw ProviderException::unexpectedPayload($this->name(), 'tool_calls[].function.name', $payload);
+            }
+
+            $id = is_array($call) ? $call['id'] ?? null : null;
+
+            $calls[] = new ToolCall(
+                id: is_string($id) ? $id : uniqid('call_', true),
+                name: $function['name'],
+                arguments: $this->decodeArguments($function['arguments'] ?? null, $payload),
+            );
+        }
+
+        return $calls;
+    }
+
+    /**
+     * OpenAI sends the arguments as a JSON string, so they have to be decoded here. A model
+     * can produce a string that is not valid JSON, which is a bad answer from the API rather
+     * than a bug in this library - hence the same unexpected-payload failure as any other
+     * malformed response.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeArguments(mixed $arguments, array $payload): array
+    {
+        if ($arguments === null || $arguments === '') {
+            return [];
+        }
+
+        if (!is_string($arguments)) {
+            throw ProviderException::unexpectedPayload($this->name(), 'tool_calls[].function.arguments', $payload);
+        }
+
+        $decoded = json_decode($arguments, true);
+
+        if (!is_array($decoded)) {
+            throw ProviderException::unexpectedPayload($this->name(), 'tool_calls[].function.arguments', $payload);
+        }
+
+        /** @var array<string, mixed> $decoded */
+        return $decoded;
     }
 
     /**

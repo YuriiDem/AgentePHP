@@ -132,9 +132,13 @@ final class AnthropicProviderTest extends TestCase
         $provider->chat([new UserMessage('?')]);
     }
 
+    /**
+     * A block of a kind this version does not handle - a thinking block, say - leaves
+     * nothing to return, and the failure has to name what was looked for.
+     */
     public function test_it_explains_which_part_of_an_unexpected_payload_was_missing(): void
     {
-        $http = FakeHttpClient::returningJson(['content' => [['type' => 'tool_use', 'id' => 'x']]]);
+        $http = FakeHttpClient::returningJson(['content' => [['type' => 'redacted_thinking', 'data' => 'x']]]);
         $provider = new AnthropicProvider(apiKey: 'test-key', model: 'claude-sonnet-4-5', http: $http);
 
         $this->expectException(ProviderException::class);

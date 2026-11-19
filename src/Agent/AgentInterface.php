@@ -8,7 +8,9 @@ use AgentePHP\Chat\History\ChatHistoryInterface;
 use AgentePHP\Chat\Messages\AssistantMessage;
 use AgentePHP\Chat\Messages\Message;
 use AgentePHP\Exceptions\AgentException;
+use AgentePHP\Exceptions\MaxToolIterationsReached;
 use AgentePHP\Exceptions\ProviderException;
+use AgentePHP\Exceptions\ToolException;
 
 /**
  * Something an application can hold a conversation with.
@@ -26,8 +28,14 @@ interface AgentInterface
      * A plain string is accepted because that is what a caller almost always has; a
      * Message is accepted for when it is not.
      *
-     * @throws AgentException    when the agent has no provider to talk to
-     * @throws ProviderException when the model's API refuses or answers with something unusable
+     * When tools are on offer, the answer may be reached through several round trips: the
+     * model asks for a tool, the library runs it and reports back, and so on until the
+     * model answers in words. What comes back is that final answer.
+     *
+     * @throws AgentException             when the agent has no provider to talk to
+     * @throws ProviderException          when the model's API refuses or answers with something unusable
+     * @throws ToolException              when two tools on offer answer to the same name
+     * @throws MaxToolIterationsReached   when the model asks for tools without ever answering
      */
     public function chat(string|Message $message): AssistantMessage;
 

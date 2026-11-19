@@ -34,7 +34,7 @@ Early development. The component roadmap is in [docs/ROADMAP.md](docs/ROADMAP.md
 - [x] HTTP transport
 - [x] LLM providers (OpenAI, Anthropic, Ollama)
 - [x] Agent core
-- [ ] Tools and function calling
+- [x] Tools and function calling
 - [ ] Events and observability
 - [ ] Structured output
 - [ ] Retrieval (RAG)

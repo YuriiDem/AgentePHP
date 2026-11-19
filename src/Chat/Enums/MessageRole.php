@@ -16,4 +16,7 @@ enum MessageRole: string
     case System = 'system';
     case User = 'user';
     case Assistant = 'assistant';
+
+    /** What a tool answered. Added with tool calling, because nothing could carry it before. */
+    case Tool = 'tool';
 }

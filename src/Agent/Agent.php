@@ -9,9 +9,15 @@ use AgentePHP\Chat\History\InMemoryChatHistory;
 use AgentePHP\Chat\Messages\AssistantMessage;
 use AgentePHP\Chat\Messages\Message;
 use AgentePHP\Chat\Messages\SystemMessage;
+use AgentePHP\Chat\Messages\ToolCall;
+use AgentePHP\Chat\Messages\ToolMessage;
 use AgentePHP\Chat\Messages\UserMessage;
 use AgentePHP\Exceptions\AgentException;
+use AgentePHP\Exceptions\MaxToolIterationsReached;
+use AgentePHP\Exceptions\ToolException;
 use AgentePHP\Providers\AIProviderInterface;
+use AgentePHP\Tools\Tool;
+use AgentePHP\Tools\ToolInterface;
 
 /**
  * An agent: a provider, a standing instruction, and a memory, behind one call.
@@ -39,6 +45,9 @@ class Agent implements AgentInterface
     private ?AIProviderInterface $providerOverride = null;
 
     private ?string $instructionsOverride = null;
+
+    /** @var list<ToolInterface>|null */
+    private ?array $toolsOverride = null;
 
     /** Set only by withHistory(): a history the caller owns and may share. */
     private ?ChatHistoryInterface $providedHistory = null;
@@ -69,11 +78,46 @@ class Agent implements AgentInterface
     {
         $question = $message instanceof Message ? $message : new UserMessage($message);
 
-        $answer = $this->resolveProvider()->chat($this->conversationWith($question));
+        $provider = $this->resolveProvider();
+        $tools = $this->resolveTools();
 
-        // Written only now: a refused call must leave the conversation exactly as it was,
-        // or retrying would send the same question twice.
-        $this->history()->add($question, $answer);
+        $conversation = $this->conversationWith($question);
+
+        // Kept apart from the history until the exchange finishes: a turn half-written into
+        // a stored conversation - a tool call with no result - is one no vendor will accept
+        // on the next call.
+        $newTurns = [$question];
+        $calledTools = [];
+
+        for ($iteration = 1; ; $iteration++) {
+            $answer = $provider->chat($conversation, $tools);
+
+            $conversation[] = $answer;
+            $newTurns[] = $answer;
+
+            if (!$answer->hasToolCalls()) {
+                break;
+            }
+
+            foreach ($answer->toolCalls() as $call) {
+                $calledTools[] = $call->name;
+
+                $result = new ToolMessage(
+                    content: $this->runToolCall($tools, $call),
+                    toolCallId: $call->id,
+                    toolName: $call->name,
+                );
+
+                $conversation[] = $result;
+                $newTurns[] = $result;
+            }
+
+            if ($iteration >= $this->maxToolIterations()) {
+                throw MaxToolIterationsReached::after($iteration, $calledTools);
+            }
+        }
+
+        $this->history()->add(...$newTurns);
 
         return $answer;
     }
@@ -95,6 +139,17 @@ class Agent implements AgentInterface
     {
         $copy = clone $this;
         $copy->instructionsOverride = $instructions;
+
+        return $copy;
+    }
+
+    /**
+     * @param list<ToolInterface> $tools
+     */
+    public function withTools(array $tools): static
+    {
+        $copy = clone $this;
+        $copy->toolsOverride = $tools;
 
         return $copy;
     }
@@ -149,6 +204,27 @@ class Agent implements AgentInterface
     }
 
     /**
+     * What this agent is allowed to do, as tools or toolkits.
+     *
+     * @return list<ToolInterface>
+     */
+    protected function tools(): array
+    {
+        return [];
+    }
+
+    /**
+     * How many times in one exchange the model may ask for tools before the request fails.
+     *
+     * Low on purpose. A model that has not answered after five rounds of tool calls is
+     * usually stuck rather than making progress, and every round is a paid API call.
+     */
+    protected function maxToolIterations(): int
+    {
+        return 5;
+    }
+
+    /**
      * Instructions first, then everything remembered, then the new question.
      *
      * The instruction is prepended on every call and never stored, so that rewording it
@@ -180,5 +256,60 @@ class Agent implements AgentInterface
         }
 
         return $provider;
+    }
+
+    /**
+     * Flattened once per exchange: the model is told about the same tools on every call,
+     * and a toolkit should not be reflected over again for each one.
+     *
+     * @return list<Tool>
+     */
+    private function resolveTools(): array
+    {
+        $offers = $this->toolsOverride ?? $this->tools();
+        $tools = [];
+
+        foreach ($offers as $offer) {
+            foreach ($offer->tools() as $tool) {
+                if (isset($tools[$tool->name])) {
+                    throw ToolException::nameIsNotUnique($tool->name, array_keys($tools));
+                }
+
+                $tools[$tool->name] = $tool;
+            }
+        }
+
+        return array_values($tools);
+    }
+
+    /**
+     * Run what the model asked for, and turn anything it got wrong into an answer it can
+     * read.
+     *
+     * A model sending a bad argument, or naming a tool that does not exist, is a thing
+     * models do - and the next turn is its chance to correct itself, which is the whole
+     * value of the loop. Anything else a tool throws is a bug in the application and is
+     * left to reach the developer.
+     *
+     * @param list<Tool> $tools
+     */
+    private function runToolCall(array $tools, ToolCall $call): string
+    {
+        foreach ($tools as $tool) {
+            if ($tool->name !== $call->name) {
+                continue;
+            }
+
+            try {
+                return $tool->call($call->arguments);
+            } catch (ToolException $e) {
+                return $e->getMessage();
+            }
+        }
+
+        return ToolException::describeUnknownTool(
+            $call->name,
+            array_map(static fn (Tool $tool): string => $tool->name, $tools),
+        );
     }
 }
