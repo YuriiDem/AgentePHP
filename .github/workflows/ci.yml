@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Every supported version is reported, rather than stopping at the first failure:
+      # "works on 8.2 but not 8.4" is exactly what this matrix exists to tell us.
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, json, mbstring
+          coverage: none
+
+      # composer.lock is not committed for a library, so this resolves the newest
+      # versions allowed by composer.json - which is what a user installing us gets.
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # Style, static analysis and tests, the same command used locally.
+      # Tests needing the network or a local model skip themselves here.
+      - name: Verify
+        run: composer check

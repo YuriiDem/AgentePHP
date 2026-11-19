@@ -4,3 +4,8 @@ parameters:
         - src
         - tests
     treatPhpDocTypesAsCertain: false
+
+    # Analyse against the oldest PHP the library claims to support, not whichever version
+    # happens to be installed. Without this, a typed constant or a PHP 8.3 feature would
+    # pass here and break for a user on 8.2.
+    phpVersion: 80200
