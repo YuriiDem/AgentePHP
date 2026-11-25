@@ -18,6 +18,7 @@ anywhere PHP 8.2 runs.
 Not on Packagist yet, so install straight from this repository:
 
 ```bash
+composer init --no-interaction --name=you/my-agent   # only in a new, empty folder
 composer config repositories.agente-php vcs https://github.com/YuriiDem/AgentePHP
 composer require ydem/agente-php:dev-main
 export OPENAI_API_KEY=sk-...
