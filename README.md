@@ -13,18 +13,6 @@ transport, the JSON Schema generation, and the vector search are part of the lib
 rather than a dependency tree, so the whole stack stays inspectable and installs
 anywhere PHP 8.2 runs.
 
-**Approachable by design.** You should be able to get an agent running without first
-learning a new vocabulary. There is no container to configure, no YAML, no code
-generation step, and no magic: an agent is a PHP class, a tool is a PHP method, and the
-call that reaches the model is one you can follow in a debugger.
-
-**Explains the machinery.** Agentic systems are not complicated once you can see them,
-but most frameworks hide the moving parts. Here the agentic loop, the tool-call
-round trip, and the retrieval pipeline are small, named, and documented — so reading the
-source is a reasonable way to learn how AI agents actually work. Each milestone in
-[docs/ROADMAP.md](docs/ROADMAP.md) carries a design note explaining why its structure
-was chosen.
-
 ## Status
 
 Early development. The component roadmap is in [docs/ROADMAP.md](docs/ROADMAP.md).
